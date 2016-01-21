@@ -1,25 +1,9 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.spark.sql.hbase
 
 import java.io.File
 
-import jline._
+import jline.console.ConsoleReader
+import jline.console.history.FileHistory
 import org.apache.spark.{Logging, SparkConf, SparkContext}
 
 /**
@@ -37,31 +21,18 @@ object HBaseSQLCliDriver extends Logging {
   private val EXIT = "EXIT"
   private val HELP = "HELP"
 
-  def getCompletors: Seq[Completor] = {
-    val sc: SimpleCompletor = new SimpleCompletor(new Array[String](0))
-
-    // add keywords, including lower-cased versions
-    HBaseSQLParser.getKeywords.foreach { kw =>
-      sc.addCandidateString(kw)
-      sc.addCandidateString(kw.toLowerCase)
-    }
-
-
-    Seq(sc)
-  }
-
   def main(args: Array[String]) {
 
     val reader = new ConsoleReader()
     reader.setBellEnabled(false)
-    getCompletors.foreach(reader.addCompletor)
+    reader.setExpandEvents(false)
 
     val historyDirectory = System.getProperty("user.home")
 
     try {
       if (new File(historyDirectory).exists()) {
         val historyFile = historyDirectory + File.separator + ".hbaseqlhistory"
-        reader.setHistory(new History(new File(historyFile)))
+        reader.setHistory(new FileHistory(new File(historyFile)))
       } else {
         System.err.println("WARNING: Directory for hbaseql history file: " + historyDirectory +
           " does not exist.   History will not be available during this session.")
@@ -128,7 +99,9 @@ object HBaseSQLCliDriver extends Logging {
         logInfo(s"Processing $input")
         val start = System.currentTimeMillis()
         val df = hbaseCtx.sql(input)
-        val str = df.showString(Integer.MAX_VALUE)
+        // On Spark will plus 1, so can not set to Integer.MAX_VALUE, actually we don't need to
+        // print too many output.
+        val str = df.showString(1000)
         val end = System.currentTimeMillis()
         println("OK")
         if (!str.equals("++\n||\n++\n++\n")) println(str)
@@ -141,8 +114,16 @@ object HBaseSQLCliDriver extends Logging {
     if (token.length > 1) {
       token(1).toUpperCase match {
         case "CREATE" =>
-          println( """CREATE TABLE table_name (col_name data_type, ..., PRIMARY KEY(col_name, ...))
-                MAPPED BY (htable_name, COLS=[col_name=family_name.qualifier])""".stripMargin)
+          println( """CREATE TABLE table_name (col_name data_type, ...)
+                    |USING org.apache.spark.sql.hbase.HBaseSource
+                    |OPTIONS(
+                    |  tableName "table_name",
+                    |  namespace "default",
+                    |  hbaseTableName "htable_name",
+                    |  keyCols "col7,col1,col3",
+                    |  colsMapping "col2=cf1.cq11,col4=cf1.cq12,col5=cf2.cq21,col6=cf2.cq22",
+                    |  encodingFormat "StringFormat"
+                    |)""".stripMargin)
         case "DROP" =>
           println("DROP TABLE table_name")
         case "ALTER" =>
@@ -163,6 +144,10 @@ object HBaseSQLCliDriver extends Logging {
         case "INSERT" =>
           println("INSERT INTO TABLE table_name SELECT clause")
           println("INSERT INTO TABLE table_name VALUES (value, ...)")
+        case "UPDATE" =>
+          println("UPDATE table_name SET col_name = VALUE (WHERE clause)")
+        case "DELETE" =>
+          println("DELETE FROM table_name (WHERE clause)")
         case "DESCRIBE" =>
           println("DESCRIBE table_name")
         case "SHOW" =>
@@ -178,7 +163,6 @@ object HBaseSQLCliDriver extends Logging {
   private def printHelpUsage() = {
     println("""Usage: HELP Statement    
       Statement:
-        CREATE | DROP | ALTER | LOAD | SELECT | INSERT | DESCRIBE | SHOW""")    
+        CREATE | DROP | ALTER | LOAD | SELECT | INSERT | UPDATE | DELETE | DESCRIBE | SHOW""")
   }
 }
-
