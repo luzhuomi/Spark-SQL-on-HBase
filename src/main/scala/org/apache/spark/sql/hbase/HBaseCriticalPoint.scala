@@ -17,6 +17,7 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.hbase.catalyst.expressions.HBaseMutableRows
 import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperations._
 import org.apache.spark.sql.hbase.types.Range
 import org.apache.spark.sql.types._
@@ -64,8 +65,8 @@ case class CriticalPoint[T](value: T, ctype: CriticalPointType.CriticalPointType
  *
  */
 private[hbase] class CriticalPointRange[+T](start: Option[T], startInclusive: Boolean,
-                                           end: Option[T], endInclusive: Boolean,
-                                           dt: AtomicType, var pred: Expression)
+                                            end: Option[T], endInclusive: Boolean,
+                                            dt: AtomicType, var pred: Expression)
   extends Range[T](start, startInclusive, end, endInclusive, dt) {
   var nextDimCriticalPointRanges: Seq[CriticalPointRange[_]] = Nil
   // this CPR is invalid, meaning its children are all excluded, different from
@@ -82,11 +83,10 @@ private[hbase] class CriticalPointRange[+T](start: Option[T], startInclusive: Bo
     (nextDimCriticalPointRanges, invalid) match {
       case (Nil, true) => Nil
       case (Nil, false) => Seq(new MDCriticalPointRange(prefix.toSeq, this, dt))
-      case _ => {
+      case _ =>
         prefix += ((start.get, dt))
         require(isPoint, "Internal Logical Error: point range expected")
         nextDimCriticalPointRanges.map(_.flatten(prefix.clone())).reduceLeft(_ ++ _)
-      }
     }
   }
 
@@ -246,7 +246,7 @@ object RangeCriticalPoint {
           }
           a
         case a@InSet(AttributeReference(_, _, _, _), list) =>
-          if (a.value.equals(key)) {
+          if (a.child.equals(key)) {
             list.foreach(v => checkAndAdd(v, CriticalPointType.bothInclusive))
           }
           a
@@ -326,7 +326,7 @@ object RangeCriticalPoint {
               result +=(new CriticalPointRange[T](Some(prev.value), false, Some(cp.value), false,
                 cp.dt, null),
                 new CriticalPointRange[T](Some(cp.value), true, Some(cp.value), true,
-                cp.dt, null))
+                  cp.dt, null))
             case (CriticalPointType.upInclusive, CriticalPointType.lowInclusive) =>
               result += new CriticalPointRange[T](Some(prev.value), true, Some(cp.value), true,
                 cp.dt, null)
@@ -337,7 +337,7 @@ object RangeCriticalPoint {
               result +=(new CriticalPointRange[T](Some(prev.value), true, Some(cp.value), false,
                 cp.dt, null),
                 new CriticalPointRange[T](Some(cp.value), true, Some(cp.value), true,
-                cp.dt, null))
+                  cp.dt, null))
             case (CriticalPointType.bothInclusive, CriticalPointType.lowInclusive) =>
               result += new CriticalPointRange[T](Some(prev.value), false, Some(cp.value), true,
                 cp.dt, null)
@@ -348,7 +348,7 @@ object RangeCriticalPoint {
               result +=(new CriticalPointRange[T](Some(prev.value), false, Some(cp.value), false,
                 cp.dt, null),
                 new CriticalPointRange[T](Some(cp.value), true, Some(cp.value), true,
-                cp.dt, null))
+                  cp.dt, null))
           }
         }
         prev = cp
@@ -414,7 +414,7 @@ object RangeCriticalPoint {
     else {
       val predExpr = pred.get
       val predRefs = predExpr.references.toSeq
-      val row = new GenericMutableRow(predRefs.size)
+      val row = new HBaseMutableRows(predRefs.size)
       // Step 1
       generateCriticalPointRangesHelper(relation, predExpr, 0, row, predRefs)
     }
@@ -454,7 +454,7 @@ object RangeCriticalPoint {
         prRes._1 == null || prRes._1.asInstanceOf[Boolean]
       })
 
-      if (!cpRanges.isEmpty && qualifiedCPRanges.isEmpty) {
+      if (cpRanges.nonEmpty && qualifiedCPRanges.isEmpty) {
         // all children are disqualified
         (true, Nil)
       }

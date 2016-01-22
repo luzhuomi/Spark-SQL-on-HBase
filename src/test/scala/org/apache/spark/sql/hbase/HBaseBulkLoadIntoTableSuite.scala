@@ -17,13 +17,11 @@
 
 package org.apache.spark.sql.hbase
 
-import org.apache.hadoop.hbase.HRegionInfo
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.GenericRow
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.hbase.execution._
-import org.apache.spark.sql.hbase.util.{HBaseKVHelper, BinaryBytesUtils}
+import org.apache.spark.sql.hbase.util.BinaryBytesUtils
 import org.apache.spark.sql.types._
 
 class HBaseBulkLoadIntoTableSuite extends TestBase {
@@ -410,7 +408,6 @@ class HBaseBulkLoadIntoTableSuite extends TestBase {
     dropNativeHbaseTable("presplit_table")
   }
 
-
   test("parall bulk load presplit table with more than 128 regions") {
     // HBasePartitioner binarySearch throws NPE if # regions > 128
     // commit dae6546373a14d4ceb22680954c3482ed33e346a
@@ -458,7 +455,4 @@ class HBaseBulkLoadIntoTableSuite extends TestBase {
     runSql("drop table region_cnt_131")
     dropNativeHbaseTable("REGION_CNT_131_HTBL")
   }
-
 }
-
-

@@ -18,6 +18,7 @@ package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase.regionserver.RegionScanner
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.hbase.catalyst.expressions.HBaseMutableRows
 import org.apache.spark.sql.hbase.catalyst.expressions.PartialPredicateOperations._
 import org.apache.spark.sql.hbase.types.{HBaseBytesType, Range}
 import org.apache.spark.{Logging, Partition}
@@ -30,7 +31,7 @@ private[hbase] class HBasePartition(
                                      val server: Option[String] = None,
                                      val filterPredicates: Option[Expression] = None,
                                      @transient relation: HBaseRelation = null,
-                                     @transient val newScanner:RegionScanner = null)
+                                     @transient val newScanner: RegionScanner = null)
   extends Range[HBaseRawType](start, true, end, false, HBaseBytesType)
   with Partition with IndexMappable with Logging {
 
@@ -43,17 +44,17 @@ private[hbase] class HBasePartition(
   @transient lazy val endNative: Seq[Any] = relation.nativeKeyConvert(end)
 
   /** Compute predicate specific for this partition: performed by the Spark slaves
-   *
-   * @param relation The HBase relation
-   * @return the partition-specific predicate
-   */
+    *
+    * @param relation The HBase relation
+    * @return the partition-specific predicate
+    */
   def computePredicate(relation: HBaseRelation): Option[Expression] = {
     val predicate = if (filterPredicates.isDefined &&
       filterPredicates.get.references.exists(_.exprId == relation.partitionKeys.head.exprId)) {
       val oriPredicate = filterPredicates.get
       val predicateReferences = oriPredicate.references.toSeq
       val boundReference = BindReferences.bindReference(oriPredicate, predicateReferences)
-      val row = new GenericMutableRow(predicateReferences.size)
+      val row = new HBaseMutableRows(predicateReferences.size)
       var rowIndex = 0
       var i = 0
       var range: Range[_] = null

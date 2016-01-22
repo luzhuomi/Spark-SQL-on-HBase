@@ -159,9 +159,9 @@ object HBaseSQLCliDriver extends Logging {
       printHelpUsage()
     }
   }
- 
+
   private def printHelpUsage() = {
-    println("""Usage: HELP Statement    
+    println( """Usage: HELP Statement
       Statement:
         CREATE | DROP | ALTER | LOAD | SELECT | INSERT | UPDATE | DELETE | DESCRIBE | SHOW""")
   }

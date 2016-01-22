@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.hbase.catalyst.expressions
 
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.errors.TreeNodeException
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.hbase.types.RangeType._
@@ -24,6 +25,7 @@ import org.apache.spark.sql.hbase.types._
 import org.apache.spark.sql.types._
 
 object PartialPredicateOperations {
+
   // When the checkNullness argument of the partialReduce method is false, the partial
   // reduction is nullness-based, i.e., uninterested columns are assigned nulls,
   // which necessitates changes of the null handling from the normal evaluations
@@ -58,8 +60,8 @@ object PartialPredicateOperations {
      *                  for nullness checking purpose or not
      * @return
      */
-    def partialReduce(input: Row, schema: Seq[Attribute], checkNull: Boolean = false):
-      (Any, Expression) = {
+    def partialReduce(input: InternalRow, schema: Seq[Attribute], checkNull: Boolean = false):
+    (Any, Expression) = {
       e match {
         case And(left, right) =>
           val l = left.partialReduce(input, schema)
@@ -119,9 +121,9 @@ object PartialPredicateOperations {
         case In(value, list) =>
           val (evaluatedValue, expr) = value.partialReduce(input, schema)
           if (evaluatedValue == null) {
-            val evaluatedList = list.map(e=>e.partialReduce(input, schema) match {
+            val evaluatedList = list.map(e => e.partialReduce(input, schema) match {
               case (null, e: Expression) => e
-              case (d, _)  => Literal.create(d, e.dataType)
+              case (d, _) => Literal.create(d, e.dataType)
             })
             (null, In(expr, evaluatedList))
           } else {
@@ -131,7 +133,7 @@ object PartialPredicateOperations {
             for (item <- evaluatedList if !foundInList) {
               if (item._1 == null) {
                 newList = newList :+ item._2
-              } else if (item._2 == null) {
+              } else {
                 val cmp = prc2(input, value.dataType, item._2.dataType, evaluatedValue, item._1)
                 if (cmp.isDefined && cmp.get == 0) {
                   foundInList = true
@@ -158,7 +160,7 @@ object PartialPredicateOperations {
             for (item <- hset if !foundInSet) {
               val cmp = prc2(input, value.dataType, value.dataType, evaluatedValue._1, item)
               if (cmp.isDefined && cmp.get == 0) {
-                  foundInSet = true
+                foundInSet = true
               } else if (cmp.isEmpty || (cmp.isDefined && (cmp.get == 1 || cmp.get == -1))) {
                 newHset = newHset + item
               }
@@ -171,33 +173,37 @@ object PartialPredicateOperations {
               (null, InSet(evaluatedValue._2, newHset))
             }
           }
+        case b: BoundReference =>
+          val res = input match {
+            case r: HBaseMutableRows => r.genericGet(b.ordinal)
+            case r: GenericInternalRow => r.values(b.ordinal)
+            case _ => input.copy().asInstanceOf[GenericInternalRow].values(b.ordinal)
+          }
+          (res, schema(b.ordinal))
         case l: LeafExpression =>
           val res = l.eval(input)
           (res, l)
-        case b: BoundReference =>
-          val res = b.eval(input)
-          (res, schema(b.ordinal))
         case n: NamedExpression =>
           val res = n.eval(input)
           (res, n)
         case IsNull(child) => if (checkNull) {
-            if (child == null) {
-              (true, null)
-            } else {
-              (false, null)
-            }
+          if (child == null) {
+            (true, null)
           } else {
-            (null, unboundAttributeReference(e, schema))
+            (false, null)
           }
+        } else {
+          (null, unboundAttributeReference(e, schema))
+        }
         case IsNotNull(child) => if (checkNull) {
-            if (child == null) {
-              (false, null)
-            } else {
-              (true, null)
-            }
+          if (child == null) {
+            (false, null)
           } else {
-            (null, unboundAttributeReference(e, schema))
+            (true, null)
           }
+        } else {
+          (null, unboundAttributeReference(e, schema))
+        }
         // TODO: CAST/Arithmetic could be treated more nicely
         case Cast(_, _) => (null, unboundAttributeReference(e, schema))
         // case BinaryArithmetic => null
@@ -310,7 +316,7 @@ object PartialPredicateOperations {
 
     @inline
     protected def prc2(
-                        i: Row,
+                        i: InternalRow,
                         dataType1: DataType,
                         dataType2: DataType,
                         eval1: Any,
@@ -331,4 +337,5 @@ object PartialPredicateOperations {
       }
     }
   }
+
 }

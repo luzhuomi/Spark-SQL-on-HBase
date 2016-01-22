@@ -79,9 +79,9 @@ class BytesUtilsSuite extends FunSuite with BeforeAndAfterAll with Logging {
     assert(BinaryBytesUtils.toShort(BinaryBytesUtils.create(ShortType)
       .toBytes(-12.asInstanceOf[Short]), 0) === -12)
 
-    assert(BinaryBytesUtils.toUTF8String(BinaryBytesUtils.create(StringType).toBytes("abc"), 0, 3)
-      === UTF8String("abc"))
-    assert(BinaryBytesUtils.toUTF8String(BinaryBytesUtils.create(StringType).toBytes(""), 0, 0) === UTF8String(""))
+    assert(BinaryBytesUtils.toUTF8String(BinaryBytesUtils.create(StringType).toBytes("abc"), 0, 3).toString
+      == "abc")
+    assert(BinaryBytesUtils.toUTF8String(BinaryBytesUtils.create(StringType).toBytes(""), 0, 0).toString == "")
 
     assert(BinaryBytesUtils.toByte(BinaryBytesUtils.create(ByteType)
       .toBytes(5.asInstanceOf[Byte]), 0) === 5)
@@ -93,14 +93,14 @@ class BytesUtilsSuite extends FunSuite with BeforeAndAfterAll with Logging {
   }
 
   test("byte array plus one") {
-    var byteArray =  Array[Byte](0x01.toByte, 127.toByte)
-    assert(Bytes.compareTo(BinaryBytesUtils.addOne(byteArray),  Array[Byte](0x01.toByte, 0x80.toByte)) == 0)
+    var byteArray = Array[Byte](0x01.toByte, 127.toByte)
+    assert(Bytes.compareTo(BinaryBytesUtils.addOne(byteArray), Array[Byte](0x01.toByte, 0x80.toByte)) == 0)
 
-    byteArray =  Array[Byte](0xff.toByte, 0xff.toByte)
+    byteArray = Array[Byte](0xff.toByte, 0xff.toByte)
     assert(BinaryBytesUtils.addOne(byteArray) == null)
 
-    byteArray =  Array[Byte](0x02.toByte, 0xff.toByte)
-    assert(Bytes.compareTo(BinaryBytesUtils.addOne(byteArray),  Array[Byte](0x03.toByte, 0x00.toByte)) == 0)
+    byteArray = Array[Byte](0x02.toByte, 0xff.toByte)
+    assert(Bytes.compareTo(BinaryBytesUtils.addOne(byteArray), Array[Byte](0x03.toByte, 0x00.toByte)) == 0)
   }
 
   test("float comparison") {

@@ -18,10 +18,9 @@
 package org.apache.spark.sql.hbase
 
 import org.apache.hadoop.hbase._
-import org.apache.spark.sql.Row
 
 /**
- * HBase minicluster query test again stringformat tbl.
+ * HBase minicluster query test against stringformat encoded tbl.
  */
 class HBaseTpcStringFormatMiniTestSuite extends TestBase {
   private val tableName = "store_sales_stringformat"
@@ -44,7 +43,7 @@ class HBaseTpcStringFormatMiniTestSuite extends TestBase {
      */
     if (!hbaseAdmin.tableExists(TableName.valueOf(hbaseTableName))) {
       val descriptor = new HTableDescriptor(TableName.valueOf(hbaseTableName))
-      hbaseFamilies.foreach { f => descriptor.addFamily(new HColumnDescriptor(f)) }
+      hbaseFamilies.foreach { f => descriptor.addFamily(new HColumnDescriptor(f))}
       try {
         hbaseAdmin.createTable(descriptor)
       } catch {

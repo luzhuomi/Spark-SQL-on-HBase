@@ -45,9 +45,8 @@ class CheckDirEndPointImpl
   private var env: RegionCoprocessorEnvironment = null
 
   override def start(env: CoprocessorEnvironment) = {
-    env match {
-      case e: RegionCoprocessorEnvironment =>
-      case _ => throw new CoprocessorException("Must be loaded on a table region!")
+    if (!env.isInstanceOf[RegionCoprocessorEnvironment]) {
+      throw new CoprocessorException("Must be loaded on a table region!")
     }
   }
 

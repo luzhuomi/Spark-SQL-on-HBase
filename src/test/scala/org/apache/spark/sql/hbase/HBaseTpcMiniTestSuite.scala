@@ -192,7 +192,12 @@ class HBaseTpcMiniTestSuite extends TestBase {
   }
 
   test("Query 7") {
-    val sql = "SELECT ss_item_sk, ss_ticket_number, sum(ss_wholesale_cost) as sum_wholesale_cost FROM store_sales WHERE ss_item_sk > 4000 AND ss_item_sk <= 5000 GROUP BY ss_item_sk, ss_ticket_number"
+    val sql =
+      s"""SELECT ss_item_sk, ss_ticket_number, sum(ss_wholesale_cost) as sum_wholesale_cost
+         |FROM store_sales
+         |WHERE ss_item_sk > 4000 AND ss_item_sk <= 5000
+         |GROUP BY ss_item_sk, ss_ticket_number"""
+        .stripMargin
     val rows = runSql(sql)
     assert(rows.length == 5)
   }
@@ -203,12 +208,13 @@ class HBaseTpcMiniTestSuite extends TestBase {
          |FROM store_sales
          |WHERE ss_item_sk > 17182
          |AND ss_item_sk <= 17183
-         |GROUP BY ss_item_sk, ss_ticket_number""".stripMargin
+         |GROUP BY ss_item_sk, ss_ticket_number"""
+        .stripMargin
     val rows = runSql(sql)
     assert(rows.length == 1)
     assert(rows(0)(0) == 17183)
     assert(rows(0)(1) == 6)
-    assert(rows(0)(2) == 0.0) // should not be null
+    assert(rows(0)(2) == null) // null-input -> sum() -> null-output
   }
 
   test("Query 8") {
@@ -254,9 +260,27 @@ class HBaseTpcMiniTestSuite extends TestBase {
   }
 
   test("Query 15") {
-    val sql = "SELECT count(ss_customer_sk) as count_customer FROM store_sales WHERE ss_customer_sk IN (1,25,50,75,100)"
+    val sql = "SELECT ss_customer_sk FROM store_sales WHERE ss_customer_sk IN (1,25,50,75,100)"
     val rows = runSql(sql)
-    assert(rows(0).get(0) == 0)
+    assert(rows.size == 0)
+  }
+
+  test("Query 15.1") {
+    val sql = "SELECT ss_customer_sk FROM store_sales WHERE ss_customer_sk IN (1,194284)"
+    val rows = runSql(sql)
+    assert(rows.size == 14)
+  }
+
+  test("Query 15.2") {
+    val sql = "SELECT ss_customer_sk FROM store_sales WHERE ss_customer_sk IN (1,225006)"
+    val rows = runSql(sql)
+    assert(rows.size == 14)
+  }
+
+  test("Query 15.3") {
+    val sql = "SELECT ss_customer_sk FROM store_sales WHERE ss_customer_sk IN (1,194284,225006)"
+    val rows = runSql(sql)
+    assert(rows.size == 28)
   }
 
   test("Query 16") {

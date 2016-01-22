@@ -17,7 +17,8 @@
 
 package org.apache.spark.sql.hbase.util
 
-import org.apache.spark.sql.catalyst.expressions.{Attribute, Row}
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.hbase._
 import org.apache.spark.sql.types._
 
@@ -115,7 +116,7 @@ object HBaseKVHelper {
     })
     for (i <- relation.nonKeyColumns.indices) {
       val nkc = relation.nonKeyColumns(i)
-      val bytes =  {
+      val bytes = {
         // we should not use the same buffer in bulk-loading otherwise it will lead to corrupted
         lineBuffer(nkc.ordinal) = relation.bytesUtils.create(lineBuffer(nkc.ordinal).dataType)
         string2Bytes(values(nkc.ordinal), lineBuffer(nkc.ordinal))
@@ -149,7 +150,7 @@ object HBaseKVHelper {
    * @return
    */
   private[hbase] def createLineBuffer(schema: Seq[Attribute]): Array[ToBytesUtils] = {
-    schema.map{x =>
+    schema.map { x =>
       BinaryBytesUtils.create(x.dataType)
     }.toArray
   }
@@ -160,7 +161,7 @@ object HBaseKVHelper {
    * @param dataTypeOfKeys sequence of data type
    * @return the row key
    */
-  def makeRowKey(row: Row, dataTypeOfKeys: Seq[DataType]): HBaseRawType = {
+  def makeRowKey(row: InternalRow, dataTypeOfKeys: Seq[DataType]): HBaseRawType = {
     val rawKeyCol = dataTypeOfKeys.zipWithIndex.map {
       case (dataType, index) =>
         (DataTypeUtils.getRowColumnInHBaseRawType(row, index, dataType), dataType)
